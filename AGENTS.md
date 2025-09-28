@@ -1,67 +1,36 @@
-# Rust/codex-rs
+# Repository Guidelines
 
-In the codex-rs folder where the rust code lives:
+## Project Structure & Module Organization
 
-- Crate names are prefixed with `codex-`. For example, the `core` folder's crate is named `codex-core`
-- When using format! and you can inline variables into {}, always do that.
-- Install any commands the repo relies on (for example `just`, `rg`, or `cargo-insta`) if they aren't already available before running instructions here.
-- Never add or modify any code related to `CODEX_SANDBOX_NETWORK_DISABLED_ENV_VAR` or `CODEX_SANDBOX_ENV_VAR`.
-  - You operate in a sandbox where `CODEX_SANDBOX_NETWORK_DISABLED=1` will be set whenever you use the `shell` tool. Any existing code that uses `CODEX_SANDBOX_NETWORK_DISABLED_ENV_VAR` was authored with this fact in mind. It is often used to early exit out of tests that the author knew you would not be able to run given your sandbox limitations.
-  - Similarly, when you spawn a process using Seatbelt (`/usr/bin/sandbox-exec`), `CODEX_SANDBOX=seatbelt` will be set on the child process. Integration tests that want to run Seatbelt themselves cannot be run under Seatbelt, so checks for `CODEX_SANDBOX=seatbelt` are also often used to early exit out of tests, as appropriate.
+Codex CLI lives in this monorepo. The Rust workspace in `codex-rs/` supplies the runtime; each crate sits in its own folder (for example `codex-rs/core` builds `codex-core`) with integration fixtures under `tests/`. The JavaScript wrapper that publishes the npm binary is in `codex-cli/`. Reference docs and FAQs live in `docs/`, while automation and release helpers reside in `scripts/`.
 
-Run `just fmt` (in `codex-rs` directory) automatically after making Rust code changes; do not ask for approval to run it. Before finalizing a change to `codex-rs`, run `just fix -p <project>` (in `codex-rs` directory) to fix any linter issues in the code. Prefer scoping with `-p` to avoid slow workspace‑wide Clippy builds; only run `just fix` without `-p` if you changed shared crates. Additionally, run the tests:
-1. Run the test for the specific project that was changed. For example, if changes were made in `codex-rs/tui`, run `cargo test -p codex-tui`.
-2. Once those pass, if any changes were made in common, core, or protocol, run the complete test suite with `cargo test --all-features`.
-When running interactively, ask the user before running `just fix` to finalize. `just fmt` does not require approval. project-specific or individual tests can be run without asking the user, but do ask the user before running the complete test suite.
+## Build, Test, and Development Commands
 
-## TUI style conventions
+- `cd codex-rs && cargo run --bin codex`: run the CLI in debug mode.
+- `cd codex-rs && just fmt`: apply the shared rustfmt profile.
+- `cd codex-rs && just fix -p codex-core`: scoped Clippy autofix for the crate you touched.
+- `cd codex-rs && cargo test -p codex-tui`: run crate tests; add `-- --nocapture` for extra logs.
+- `cd codex-rs && just test`: full suite via `cargo nextest --no-fail-fast`.
+- `pnpm run format:fix`: Prettier for Markdown, JSON, and workflow files.
 
-See `codex-rs/tui/styles.md`.
+## Coding Style & Naming Conventions
 
-## TUI code conventions
+Rust targets edition 2024; follow the repo `rustfmt.toml` and keep imports tidy. Crates and binaries always use the `codex-` prefix to match workspace metadata. Prefer inline `format!` interpolation (`format!("{value}")`) and leverage ratatui Stylize helpers outlined in `codex-rs/tui/styles.md`. JavaScript and Markdown code should pass Prettier, and shell scripts stay POSIX unless an existing shebang requires bash.
 
-- Use concise styling helpers from ratatui’s Stylize trait.
-  - Basic spans: use "text".into()
-  - Styled spans: use "text".red(), "text".green(), "text".magenta(), "text".dim(), etc.
-  - Prefer these over constructing styles with `Span::styled` and `Style` directly.
-  - Example: patch summary file lines
-    - Desired: vec!["  └ ".into(), "M".red(), " ".dim(), "tui/src/app.rs".dim()]
+## Testing Guidelines
 
-### TUI Styling (ratatui)
-- Prefer Stylize helpers: use "text".dim(), .bold(), .cyan(), .italic(), .underlined() instead of manual Style where possible.
-- Prefer simple conversions: use "text".into() for spans and vec![…].into() for lines; when inference is ambiguous (e.g., Paragraph::new/Cell::from), use Line::from(spans) or Span::from(text).
-- Computed styles: if the Style is computed at runtime, using `Span::styled` is OK (`Span::from(text).set_style(style)` is also acceptable).
-- Avoid hardcoded white: do not use `.white()`; prefer the default foreground (no color).
-- Chaining: combine helpers by chaining for readability (e.g., url.cyan().underlined()).
-- Single items: prefer "text".into(); use Line::from(text) or Span::from(text) only when the target type isn’t obvious from context, or when using .into() would require extra type annotations.
-- Building lines: use vec![…].into() to construct a Line when the target type is obvious and no extra type annotations are needed; otherwise use Line::from(vec![…]).
-- Avoid churn: don’t refactor between equivalent forms (Span::styled ↔ set_style, Line::from ↔ .into()) without a clear readability or functional gain; follow file‑local conventions and do not introduce type annotations solely to satisfy .into().
-- Compactness: prefer the form that stays on one line after rustfmt; if only one of Line::from(vec![…]) or vec![…].into() avoids wrapping, choose that. If both wrap, pick the one with fewer wrapped lines.
+Run crate-specific suites with `cargo test -p <crate>` before invoking broader runs. TUI rendering relies on Insta snapshots: regenerate with `cargo test -p codex-tui`, inspect `cargo insta pending-snapshots -p codex-tui`, and accept after review. Tests should use `pretty_assertions::assert_eq` for clearer diffs. Place new integration fixtures under `codex-rs/cli/tests` and document required environment variables in `docs/`.
 
-### Text wrapping
-- Always use textwrap::wrap to wrap plain strings.
-- If you have a ratatui Line and you want to wrap it, use the helpers in tui/src/wrapping.rs, e.g. word_wrap_lines / word_wrap_line.
-- If you need to indent wrapped lines, use the initial_indent / subsequent_indent options from RtOptions if you can, rather than writing custom logic.
-- If you have a list of lines and you need to prefix them all with some prefix (optionally different on the first vs subsequent lines), use the `prefix_lines` helper from line_utils.
+## Commit & Pull Request Guidelines
 
-## Tests
+Work from topic branches such as `feat/short-label` or `fix/issue-123`. Write imperative, signed-off commits (`git commit -s`) so the DCO check succeeds, and keep every commit buildable. Before opening a PR, run formatting, Clippy, and the relevant tests, then explain what changed, why, and how to verify it. Link tracking issues and include CLI output or screenshots whenever behavior or UI shifts. Update documentation alongside any user-facing change.
 
-### Snapshot tests
+## Security & Configuration Tips
 
-This repo uses snapshot tests (via `insta`), especially in `codex-rs/tui`, to validate rendered output. When UI or text output changes intentionally, update the snapshots as follows:
+Do not check in credentials; configuration lives in `~/.codex/config.toml`. Report security concerns to `security@openai.com`. When examples require tokens, prefer placeholder environment variables rather than real values.
 
-- Run tests to generate any updated snapshots:
-  - `cargo test -p codex-tui`
-- Check what’s pending:
-  - `cargo insta pending-snapshots -p codex-tui`
-- Review changes by reading the generated `*.snap.new` files directly in the repo, or preview a specific file:
-  - `cargo insta show -p codex-tui path/to/file.snap.new`
-- Only if you intend to accept all new snapshots in this crate, run:
-  - `cargo insta accept -p codex-tui`
+# Repository Purpose
 
-If you don’t have the tool:
-- `cargo install cargo-insta`
-
-### Test assertions
-
-- Tests should use pretty_assertions::assert_eq for clearer diffs. Import this at the top of the test module if it isn't already.
+This repository is a fork of the original Codex CLI project, and we are renaming
+it to "Symbioza". We will build upon this product to create a custom tool that
+implements our features.
