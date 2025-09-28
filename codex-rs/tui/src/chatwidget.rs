@@ -1136,6 +1136,9 @@ impl ChatWidget {
             SlashCommand::Conf => {
                 self.add_info_message("edit peferences".to_string(), None);
             }
+            SlashCommand::SymbiozaLogin => {
+                self.add_info_message("login".to_string(), None);
+            }
             SlashCommand::Mcp => {
                 self.add_mcp_output();
             }
