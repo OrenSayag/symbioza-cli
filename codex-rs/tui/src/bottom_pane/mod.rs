@@ -29,6 +29,7 @@ mod list_selection_view;
 pub(crate) use list_selection_view::SelectionViewParams;
 mod paste_burst;
 pub mod popup_consts;
+mod preferences_editor_view;
 mod scroll_state;
 mod selection_popup_common;
 mod textarea;
@@ -46,6 +47,7 @@ use codex_protocol::custom_prompts::CustomPrompt;
 use crate::status_indicator_widget::StatusIndicatorWidget;
 pub(crate) use list_selection_view::SelectionAction;
 pub(crate) use list_selection_view::SelectionItem;
+pub(crate) use preferences_editor_view::PreferencesEditorView;
 
 /// Pane displayed in the lower half of the chat UI.
 pub(crate) struct BottomPane {
